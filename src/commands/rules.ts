@@ -3,6 +3,7 @@ import { ExitCodes } from "../lib/exit-codes";
 import { readCredentials } from "../lib/storage";
 import { callMcpTool } from "../lib/mcp-client";
 import { handleMcpError } from "./pre-commit";
+import { safeText } from "../lib/safe-print";
 
 interface RulesOptions {
 	json?: boolean;
@@ -67,48 +68,71 @@ export async function rulesCommand(options: RulesOptions): Promise<number> {
 	}
 }
 
-function normalize(raw: unknown): TeamRulesResponse {
-	const obj = (raw && typeof raw === "object" ? raw : {}) as Record<
-		string,
-		unknown
-	>;
-	const policiesArr = Array.isArray(obj.policies)
-		? (obj.policies as unknown[])
+/**
+ * Type guard for "this entry is a non-empty string" — used in defensive
+ * `.filter()` calls when normalizing untrusted MCP responses. Named
+ * descriptively rather than the conventional `s` per the team's clean-code
+ * rule (no single-letter variables, even in narrow callbacks).
+ */
+function isNonEmptyString(candidate: unknown): candidate is string {
+	return typeof candidate === "string";
+}
+
+function normalize(rawResponse: unknown): TeamRulesResponse {
+	const responseObject = (
+		rawResponse && typeof rawResponse === "object" ? rawResponse : {}
+	) as Record<string, unknown>;
+
+	const policiesArray = Array.isArray(responseObject.policies)
+		? (responseObject.policies as unknown[])
 		: [];
-	const policies: PolicyRule[] = policiesArr
-		.filter((p): p is Record<string, unknown> => !!p && typeof p === "object")
-		.map((p) => ({
-			name: typeof p.name === "string" ? p.name : "(unnamed)",
-			description: typeof p.description === "string" ? p.description : "",
+	const policies: PolicyRule[] = policiesArray
+		.filter(
+			(policyEntry): policyEntry is Record<string, unknown> =>
+				!!policyEntry && typeof policyEntry === "object",
+		)
+		.map((policyEntry) => ({
+			name:
+				typeof policyEntry.name === "string"
+					? safeText(policyEntry.name)
+					: "(unnamed)",
+			description:
+				typeof policyEntry.description === "string"
+					? safeText(policyEntry.description)
+					: "",
 			conditions:
-				typeof p.conditions === "string" ? p.conditions : "(no conditions)",
+				typeof policyEntry.conditions === "string"
+					? safeText(policyEntry.conditions)
+					: "(no conditions)",
 			consequence:
-				typeof p.consequence === "string" ? p.consequence : "(no consequence)",
+				typeof policyEntry.consequence === "string"
+					? safeText(policyEntry.consequence)
+					: "(no consequence)",
 		}));
 
-	const criteria = (
-		obj.riskCriteria && typeof obj.riskCriteria === "object"
-			? (obj.riskCriteria as Record<string, unknown>)
+	const riskCriteriaObject = (
+		responseObject.riskCriteria && typeof responseObject.riskCriteria === "object"
+			? (responseObject.riskCriteria as Record<string, unknown>)
 			: {}
 	) as Record<string, unknown>;
-	const highRiskPatterns = Array.isArray(criteria.highRiskPatterns)
-		? (criteria.highRiskPatterns as unknown[]).filter(
-				(s): s is string => typeof s === "string",
-			)
+	const highRiskPatterns = Array.isArray(riskCriteriaObject.highRiskPatterns)
+		? (riskCriteriaObject.highRiskPatterns as unknown[])
+				.filter(isNonEmptyString)
+				.map(safeText)
 		: [];
-	const requiredPractices = Array.isArray(criteria.requiredPractices)
-		? (criteria.requiredPractices as unknown[]).filter(
-				(s): s is string => typeof s === "string",
-			)
+	const requiredPractices = Array.isArray(riskCriteriaObject.requiredPractices)
+		? (riskCriteriaObject.requiredPractices as unknown[])
+				.filter(isNonEmptyString)
+				.map(safeText)
 		: [];
 	const autoBlockThreshold =
-		typeof criteria.autoBlockThreshold === "number"
-			? criteria.autoBlockThreshold
+		typeof riskCriteriaObject.autoBlockThreshold === "number"
+			? riskCriteriaObject.autoBlockThreshold
 			: null;
-	const dismissedGuidance = Array.isArray(obj.dismissedGuidance)
-		? (obj.dismissedGuidance as unknown[]).filter(
-				(s): s is string => typeof s === "string",
-			)
+	const dismissedGuidance = Array.isArray(responseObject.dismissedGuidance)
+		? (responseObject.dismissedGuidance as unknown[])
+				.filter(isNonEmptyString)
+				.map(safeText)
 		: [];
 
 	return {
