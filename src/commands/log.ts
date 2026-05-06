@@ -3,6 +3,7 @@ import { ExitCodes } from '../lib/exit-codes';
 import { readCredentials } from '../lib/storage';
 import { callMcpTool } from '../lib/mcp-client';
 import { handleMcpError } from './pre-commit';
+import { safeText } from '../lib/safe-print';
 
 interface LogOptions {
   json?: boolean;
@@ -145,16 +146,22 @@ function renderLog(log: LogResponse): void {
     const time = item.analyzedAt
       ? new Date(item.analyzedAt).toLocaleString()
       : '(unknown time)';
-    const repo =
-      typeof item.repository === 'string' ? item.repository : '(unknown)';
+    // Sanitize all MCP-derived strings against ANSI / control-char injection.
+    // See lib/safe-print.ts.
+    const repo = safeText(
+      typeof item.repository === 'string' ? item.repository : '(unknown)',
+    );
     const score = typeof item.riskScore === 'number' ? item.riskScore : 0;
-    const level = typeof item.riskLevel === 'string' ? item.riskLevel : 'unknown';
+    const level = safeText(
+      typeof item.riskLevel === 'string' ? item.riskLevel : 'unknown',
+    );
     const tag =
       item.type === 'pr'
         ? `PR #${item.prNumber ?? '?'}`
-        : `push ${item.branch || ''}`;
-    const title =
-      item.type === 'pr' ? item.prTitle || '' : item.summary || '';
+        : `push ${safeText(item.branch || '')}`;
+    const title = safeText(
+      item.type === 'pr' ? item.prTitle || '' : item.summary || '',
+    );
     process.stdout.write(
       `  ${colorFor(level)(
         `${score.toString().padStart(3, ' ')}/100`,
