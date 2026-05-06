@@ -4,6 +4,7 @@ import { readCredentials } from '../lib/storage';
 import { readRemoteOriginUrl } from '../lib/git';
 import { callMcpTool } from '../lib/mcp-client';
 import { handleMcpError } from './pre-commit';
+import { safeText } from '../lib/safe-print';
 
 interface ReviewOptions {
   json?: boolean;
@@ -128,26 +129,37 @@ function renderReview(review: PrCodeReviewResponse): void {
     return kleur.cyan(' info  ');
   };
 
+  // All MCP-derived strings flow through `safeText` before printing.
+  // Threat: LLM output may include ANSI escapes / control characters
+  // injected from the diff content. See lib/safe-print.ts.
+  const safeLevel = safeText(review.riskLevel || 'unknown');
+  const safeTitle = safeText(review.prTitle);
+  const safeRepo = safeText(review.repository);
+  const safeBranch = safeText(review.branch);
+  const safeAuthor = safeText(review.prAuthor);
+
   process.stdout.write('\n');
   process.stdout.write(
-    `  ${colorFor(review.riskLevel)(review.riskLevel.toUpperCase())} ${kleur.dim(
+    `  ${colorFor(safeLevel)(safeLevel.toUpperCase())} ${kleur.dim(
       `(score ${review.riskScore}/100)`,
-    )}  ${kleur.bold(review.prTitle)}\n`,
+    )}  ${kleur.bold(safeTitle)}\n`,
   );
   process.stdout.write(
-    `  ${kleur.dim(`#${review.prNumber} on ${review.repository} · ${review.branch} · @${review.prAuthor}`)}\n`,
+    `  ${kleur.dim(`#${review.prNumber} on ${safeRepo} · ${safeBranch} · @${safeAuthor}`)}\n`,
   );
   process.stdout.write('\n');
 
   if (review.aiSummary) {
-    process.stdout.write(`  ${review.aiSummary}\n`);
+    process.stdout.write(`  ${safeText(review.aiSummary)}\n`);
     process.stdout.write('\n');
   } else if (review.summary) {
-    process.stdout.write(`  ${kleur.dim(review.summary)}\n\n`);
+    process.stdout.write(`  ${kleur.dim(safeText(review.summary))}\n\n`);
   }
 
   if (review.aiReviewFocus) {
-    process.stdout.write(`  ${kleur.bold('Verify:')} ${review.aiReviewFocus}\n\n`);
+    process.stdout.write(
+      `  ${kleur.bold('Verify:')} ${safeText(review.aiReviewFocus)}\n\n`,
+    );
   }
 
   if (review.inlineComments && review.inlineComments.length > 0) {
@@ -156,13 +168,17 @@ function renderReview(review: PrCodeReviewResponse): void {
       // Defensive against partial/null shapes from MCP — `body` may be
       // empty if the LLM returned an inline-comment without a quote/fix
       // string. Don't crash on .split() of undefined.
-      const path = typeof comment.path === 'string' ? comment.path : '?';
+      const path = safeText(
+        typeof comment.path === 'string' ? comment.path : '?',
+      );
       const line = typeof comment.line === 'number' ? comment.line : 0;
       const severity =
         comment.severity === 'critical' || comment.severity === 'warning'
           ? comment.severity
           : 'info';
-      const body = typeof comment.body === 'string' ? comment.body : '';
+      const body = safeText(
+        typeof comment.body === 'string' ? comment.body : '',
+      );
       process.stdout.write(
         `    ${severityBadge(severity)} ${kleur.dim(`${path}:L${line}`)}\n`,
       );
@@ -174,11 +190,17 @@ function renderReview(review: PrCodeReviewResponse): void {
     process.stdout.write('\n');
   }
 
-  const stringList = (xs: unknown): string[] =>
-    Array.isArray(xs) ? xs.filter((s): s is string => typeof s === 'string') : [];
-  const keyFindings = stringList(review.aiKeyFindings);
-  const suggestions = stringList(review.aiSuggestions);
-  const crossFileFindings = stringList(review.crossFileFindings);
+  const sanitizedStringList = (rawValue: unknown): string[] =>
+    Array.isArray(rawValue)
+      ? rawValue
+          .filter(
+            (entry): entry is string => typeof entry === 'string',
+          )
+          .map((entry) => safeText(entry))
+      : [];
+  const keyFindings = sanitizedStringList(review.aiKeyFindings);
+  const suggestions = sanitizedStringList(review.aiSuggestions);
+  const crossFileFindings = sanitizedStringList(review.crossFileFindings);
 
   if (keyFindings.length > 0) {
     process.stdout.write(`  ${kleur.bold('Focus / code notes:')}\n`);
