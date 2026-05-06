@@ -7,6 +7,7 @@ import {
   writeJsonObjectAtomic,
 } from './json-merge';
 import { ReentryServerSpec } from './types';
+import { toMcpUrl } from './validate-api-url';
 
 /** Key under which our server is registered. Stable for upgrades + removal. */
 export const REENTRY_SERVER_KEY = 'reentry-ai';
@@ -32,11 +33,14 @@ export function claudeCodeConfigPath(global: boolean): string {
  * Build the Claude Code server entry. Claude Code's MCP schema includes a
  * `type` discriminator (http | stdio | sse). Reentry's server is
  * Streamable-HTTP; we send the bearer token in an Authorization header.
+ *
+ * Throws `InvalidApiUrlError` if `spec.apiUrl` is not an https:// URL
+ * (or http://localhost for development) — see validate-api-url.ts.
  */
 function buildEntry(spec: ReentryServerSpec): Record<string, unknown> {
   return {
     type: 'http',
-    url: `${spec.apiUrl.replace(/\/$/, '')}/mcp`,
+    url: toMcpUrl(spec.apiUrl),
     headers: {
       Authorization: `Bearer ${spec.accessToken}`,
     },
@@ -86,10 +90,18 @@ export function addClaudeCode(
   // Tighten the file to 0600 — it now contains a bearer token. Claude Code
   // tolerates restrictive perms; this is the same posture as
   // ~/.config/reentry/credentials.json.
+  //
+  // If chmod fails, surface a stderr warning rather than swallowing —
+  // a security-relevant operation failing silently is a smell, and the
+  // user has no other signal that the bearer-token file is now readable
+  // by other users on the system.
   try {
     fs.chmodSync(configPath, 0o600);
-  } catch {
-    // Best-effort; non-POSIX filesystems may reject.
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : 'unknown error';
+    process.stderr.write(
+      `warning: could not chmod 0600 ${path.basename(configPath)} (${detail}). The bearer token may be readable by other local users — manually run: chmod 0600 "${configPath}"\n`,
+    );
   }
 
   return {

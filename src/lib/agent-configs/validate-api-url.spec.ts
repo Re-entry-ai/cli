@@ -1,4 +1,8 @@
-import { validateApiUrl, InvalidApiUrlError } from './validate-api-url';
+import {
+  validateApiUrl,
+  toMcpUrl,
+  InvalidApiUrlError,
+} from './validate-api-url';
 
 describe('validateApiUrl', () => {
   describe('accepts', () => {
@@ -12,9 +16,31 @@ describe('validateApiUrl', () => {
       expect(url.origin).toBe('https://api.re-entry.ai:8443');
     });
 
-    it('https URL with trailing path (origin only used)', () => {
-      const url = validateApiUrl('https://api.re-entry.ai/some/path');
-      expect(url.origin).toBe('https://api.re-entry.ai');
+    it('https URL with path prefix — pathname preserved (reverse-proxy)', () => {
+      const url = validateApiUrl('https://gateway.example.com/reentry');
+      expect(url.origin).toBe('https://gateway.example.com');
+      expect(url.pathname).toBe('/reentry');
+      // The buildEntry helpers in claude-code.ts and cursor.ts read
+      // `${origin}${pathname}` so the final URL becomes:
+      //   https://gateway.example.com/reentry/mcp
+      // — preserving the proxy path. This case pins that contract.
+      expect(`${url.origin}${url.pathname.replace(/\/+$/, '')}/mcp`).toBe(
+        'https://gateway.example.com/reentry/mcp',
+      );
+    });
+
+    it('https URL with trailing slash on path — slash dropped before /mcp', () => {
+      const url = validateApiUrl('https://gateway.example.com/reentry/');
+      expect(`${url.origin}${url.pathname.replace(/\/+$/, '')}/mcp`).toBe(
+        'https://gateway.example.com/reentry/mcp',
+      );
+    });
+
+    it('bare https URL — pathname is "/" but no extra slash before /mcp', () => {
+      const url = validateApiUrl('https://api.re-entry.ai');
+      expect(`${url.origin}${url.pathname.replace(/\/+$/, '')}/mcp`).toBe(
+        'https://api.re-entry.ai/mcp',
+      );
     });
 
     it('http://localhost (any port) — dev workflow', () => {
@@ -91,6 +117,45 @@ describe('validateApiUrl', () => {
     it('malformed URL', () => {
       expect(() => validateApiUrl('not-a-url')).toThrow(InvalidApiUrlError);
       expect(() => validateApiUrl('https://')).toThrow(InvalidApiUrlError);
+    });
+  });
+
+  describe('toMcpUrl (single source of truth for MCP endpoint assembly)', () => {
+    it('bare https URL', () => {
+      expect(toMcpUrl('https://api.re-entry.ai')).toBe(
+        'https://api.re-entry.ai/mcp',
+      );
+    });
+
+    it('https URL with trailing slash', () => {
+      expect(toMcpUrl('https://api.re-entry.ai/')).toBe(
+        'https://api.re-entry.ai/mcp',
+      );
+    });
+
+    it('https URL with path prefix (reverse-proxy)', () => {
+      expect(toMcpUrl('https://gateway.example.com/reentry')).toBe(
+        'https://gateway.example.com/reentry/mcp',
+      );
+    });
+
+    it('https URL with path prefix and trailing slash', () => {
+      expect(toMcpUrl('https://gateway.example.com/reentry/')).toBe(
+        'https://gateway.example.com/reentry/mcp',
+      );
+    });
+
+    it('localhost dev URL', () => {
+      expect(toMcpUrl('http://localhost:3003')).toBe(
+        'http://localhost:3003/mcp',
+      );
+    });
+
+    it('rejects invalid URLs (delegates to validateApiUrl)', () => {
+      expect(() => toMcpUrl('http://api.attacker.com')).toThrow(
+        InvalidApiUrlError,
+      );
+      expect(() => toMcpUrl('not-a-url')).toThrow(InvalidApiUrlError);
     });
   });
 

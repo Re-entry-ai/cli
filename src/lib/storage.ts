@@ -32,20 +32,30 @@ export function readCredentials(): Credentials | null {
 
   // Validate file mode is 0600. We wrote it that way; if it's been loosened
   // (manual chmod, restore from backup, dotfile sync) auto-tighten and warn
-  // once. Stay friendly here — refusing to load would break users who didn't
-  // know the mode drifted. Testing showed this is silent today.
+  // once. Stay friendly — refusing to load would break users who didn't know
+  // the mode drifted.
+  //
+  // Privacy: log only the basename, never the full absolute path. Centralized
+  // log collectors (CI, Datadog, container stdout) ingest stderr; the absolute
+  // path leaks home directory + filesystem structure across the org.
   try {
     const stat = fs.statSync(file);
     const mode = stat.mode & 0o777;
     if (mode !== 0o600) {
       process.stderr.write(
-        `warning: credentials file ${file} was mode ${mode.toString(8).padStart(4, '0')}; tightening to 0600.\n`,
+        `warning: credentials file ${path.basename(file)} was mode ${mode.toString(8).padStart(4, '0')}; tightening to 0600.\n`,
       );
       try {
         fs.chmodSync(file, 0o600);
-      } catch {
-        // chmod can fail on platforms without POSIX perms (Windows/WSL edge);
-        // we still return the credentials — the warning is the contract.
+      } catch (err) {
+        // chmod can fail on platforms without POSIX perms (Windows/WSL edge)
+        // or when the file is owned by another user (e.g., after a sudo mishap).
+        // Surface the failure so the user knows the bearer token is still
+        // world-readable — silent failure on a security operation is a smell.
+        const detail = err instanceof Error ? err.message : 'unknown error';
+        process.stderr.write(
+          `warning: could not tighten ${path.basename(file)} permissions (${detail}). Run: chmod 0600 "${path.basename(file)}"\n`,
+        );
       }
     }
   } catch {

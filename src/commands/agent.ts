@@ -13,6 +13,7 @@ import {
 	statusCursor,
 } from "../lib/agent-configs/cursor";
 import { AgentId } from "../lib/agent-configs/types";
+import { InvalidApiUrlError } from "../lib/agent-configs/validate-api-url";
 
 const SUPPORTED_AGENTS: readonly AgentId[] = ["claude-code", "cursor"] as const;
 
@@ -68,8 +69,25 @@ async function agentAddCommand(
 		accessToken: creds.accessToken,
 	};
 	const opts = { global: options.global, force: options.force };
-	const result =
-		agent === "claude-code" ? addClaudeCode(spec, opts) : addCursor(spec, opts);
+	let result;
+	try {
+		result =
+			agent === "claude-code" ? addClaudeCode(spec, opts) : addCursor(spec, opts);
+	} catch (err) {
+		if (err instanceof InvalidApiUrlError) {
+			if (options.json) {
+				emitJson({
+					success: false,
+					code: "INVALID_API_URL",
+					message: err.message,
+				});
+			} else {
+				process.stderr.write(`${kleur.red("error:")} ${err.message}\n`);
+			}
+			return ExitCodes.USAGE;
+		}
+		throw err;
+	}
 
 	if (result.outcome === "stale") {
 		const message = `existing reentry-ai entry in ${result.configPath} differs from the current login. Re-run with --force to overwrite, or remove with \`reentry agent remove ${agent}\`.`;

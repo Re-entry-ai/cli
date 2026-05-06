@@ -67,6 +67,29 @@ export function validateApiUrl(input: string): URL {
 	);
 }
 
+/**
+ * Build the full MCP endpoint URL from an apiUrl.
+ *
+ * Both Claude Code and Cursor writers used to inline this; that drifted as
+ * we added path-preservation for reverse-proxy deployments. Single source
+ * of truth so the assembly rule lives in one place — extracted in v0.2.1
+ * after the dogfood flagged the duplication.
+ *
+ * Examples:
+ *   "https://api.re-entry.ai"          → "https://api.re-entry.ai/mcp"
+ *   "https://api.re-entry.ai/"         → "https://api.re-entry.ai/mcp"
+ *   "https://gateway.example.com/r"    → "https://gateway.example.com/r/mcp"
+ *   "https://gateway.example.com/r/"   → "https://gateway.example.com/r/mcp"
+ *   "http://localhost:3003"            → "http://localhost:3003/mcp"
+ *
+ * Throws `InvalidApiUrlError` on rejected input (see `validateApiUrl`).
+ */
+export function toMcpUrl(apiUrl: string): string {
+  const url = validateApiUrl(apiUrl);
+  const base = `${url.origin}${url.pathname.replace(/\/+$/, '')}`;
+  return `${base}/mcp`;
+}
+
 function isLocalhost(hostname: string): boolean {
 	// Strip IPv6 brackets ("[::1]" → "::1").
 	const h = hostname.replace(/^\[/, "").replace(/\]$/, "");
