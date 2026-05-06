@@ -11,6 +11,10 @@ import { explainCommand } from './commands/explain';
 import { observeCommand } from './commands/observe';
 import { initCommand } from './commands/init';
 import { buildAgentCommand } from './commands/agent';
+import { rulesCommand } from './commands/rules';
+import { fixesCommand } from './commands/fixes';
+import { reviewCommand } from './commands/review';
+import { logCommand } from './commands/log';
 
 /**
  * `reentry` CLI entry point.
@@ -150,6 +154,92 @@ function main(argv: string[]): void {
     );
 
   program.addCommand(buildAgentCommand());
+
+  program
+    .command('rules')
+    .description(
+      "Show your team's governance rules: active policies, high-risk patterns, required practices.",
+    )
+    .option('--json', 'machine-readable output')
+    .action(async (options: { json?: boolean }) => {
+      const code = await rulesCommand({ json: options.json });
+      process.exit(code);
+    });
+
+  program
+    .command('fixes')
+    .description(
+      'Print agent-paste risk-reduction instructions for a PR or push. Pipe-friendly: `reentry fixes | claude`.',
+    )
+    .option('--json', 'machine-readable output')
+    .option('--pr <number>', 'PR number (default: current branch via git)')
+    .option('--branch <name>', 'branch name override')
+    .option('--repository <owner/name>', 'repository (auto-detected from git remote if omitted)')
+    .action(
+      async (options: {
+        json?: boolean;
+        pr?: string;
+        branch?: string;
+        repository?: string;
+      }) => {
+        const code = await fixesCommand({
+          json: options.json,
+          pr: options.pr,
+          branch: options.branch,
+          repository: options.repository,
+        });
+        process.exit(code);
+      },
+    );
+
+  program
+    .command('review <prNumber>')
+    .description(
+      'Show the full AI code review for a PR — same content as the dashboard panel.',
+    )
+    .option('--json', 'machine-readable output')
+    .option('--repository <owner/name>', 'repository (auto-detected from git remote if omitted)')
+    .action(
+      async (
+        prNumber: string,
+        options: { json?: boolean; repository?: string },
+      ) => {
+        const code = await reviewCommand(prNumber, {
+          json: options.json,
+          repository: options.repository,
+        });
+        process.exit(code);
+      },
+    );
+
+  program
+    .command('log')
+    .description(
+      'List recent risk assessments (PR + push) for your team, newest first.',
+    )
+    .option('--json', 'machine-readable output')
+    .option('--limit <n>', 'max items (1-100, default 20)')
+    .option('--offset <n>', 'pagination offset (default 0)')
+    .option('--repository <owner/name>', 'filter to a single repo')
+    .option('--kind <kind>', 'pr | push | both (default both)')
+    .action(
+      async (options: {
+        json?: boolean;
+        limit?: string;
+        offset?: string;
+        repository?: string;
+        kind?: string;
+      }) => {
+        const code = await logCommand({
+          json: options.json,
+          limit: options.limit,
+          offset: options.offset,
+          repository: options.repository,
+          kind: options.kind,
+        });
+        process.exit(code);
+      },
+    );
 
   program.exitOverride((err) => {
     // Commander's default exits with code 1 on usage errors. Map to 64 (USAGE)

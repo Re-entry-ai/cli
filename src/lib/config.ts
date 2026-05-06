@@ -40,4 +40,4 @@ export function userAgent(): string {
  * Embedded version string. Updated when we cut a release.
  * Kept inline so the bundled binary doesn't have to read package.json at runtime.
  */
-export const CLI_VERSION = '0.2.0';
+export const CLI_VERSION = '0.3.0';

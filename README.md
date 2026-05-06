@@ -72,13 +72,31 @@ A day-in-the-life view — what `reentry` is doing while you work.
 | `reentry login` | Authenticate via device flow (opens your browser). |
 | `reentry logout` | Remove the locally stored token. |
 | `reentry whoami` | Show the team, plan tier, and tool scopes attached to your token. |
-| `reentry pre-commit` | Check the staged diff. Exits non-zero on blocked / requires-review. |
-| `reentry status [pr]` | Governance verdict for the current branch or a specific PR. |
+| `reentry pre-commit` | Check the staged diff. Exits non-zero on blocked / requires-review. Runs the LLM synchronously — no heuristic-only verdicts. |
+| `reentry status [pr]` | Governance verdict for the current branch or a specific PR. Runs the LLM synchronously. |
 | `reentry explain <pr>` | Human-readable rationale for a PR decision. |
+| `reentry rules` | Show the team's policies, high-risk patterns, and required practices. |
+| `reentry review <pr>` | Full structured AI code review for a PR — same content as the dashboard panel. |
+| `reentry fixes` | Print agent-paste risk-reduction instructions. Pipe-friendly: `reentry fixes \| claude`. |
+| `reentry log` | Recent assessments (PR + push) for your team, newest first. Paginated. |
 | `reentry observe` | Tail live agent-session events from your team. |
 | `reentry agent add <claude-code\|cursor>` | Write the re-entry MCP server into the agent's config. `--global` for user-level, `--force` to overwrite a stale entry. |
 | `reentry agent remove <claude-code\|cursor>` | Remove only the re-entry server entry; preserves everything else in the file. |
 | `reentry agent list` | Show install status for each supported agent. |
+
+### CLI vs Dashboard — when to use which
+
+The CLI and dashboard are designed for different workflows. **Use the right tool for the job.**
+
+| Use the CLI for | Use the dashboard for |
+| --- | --- |
+| Pre-commit and pre-merge gates (`pre-commit`, `status`) | Configuring guards, policies, and integrations (Linear, Slack, Jira) |
+| Reading rules, reviews, fixes, history (`rules`, `review`, `fixes`, `log`) | Approving / overriding interventions (visual context matters) |
+| CI gates and pipe-friendly outputs (`--json` everywhere) | Setting team autonomy levels (autonomous / assisted / manual) |
+| Live tail of agent activity (`observe`) | OAuth flows for new integrations |
+| Configuring IDE/agent MCP servers (`agent add`) | Codebase graph, blast radius visualizations, per-author dashboards |
+
+**Principle**: CLI is for fast, frequent, single-developer terminal actions. Dashboard is for collaborative, visual, low-frequency configuration. Read-only artifacts live in the CLI. Configuration lives in the dashboard.
 
 Every command accepts `--json` for machine-readable output (success and error). Every command honors `--no-color` and the `NO_COLOR` env variable.
 
