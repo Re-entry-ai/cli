@@ -10,6 +10,7 @@ import { statusCommand } from './commands/status';
 import { explainCommand } from './commands/explain';
 import { observeCommand } from './commands/observe';
 import { initCommand } from './commands/init';
+import { buildAgentCommand } from './commands/agent';
 
 /**
  * `reentry` CLI entry point.
@@ -107,7 +108,7 @@ function main(argv: string[]): void {
     .command('status [prNumber]')
     .description('Get the governance verdict for the current branch or a specific PR.')
     .option('--json', 'machine-readable output')
-    .option('--repository <owner/name>', 'repository identifier (required)')
+    .option('--repository <owner/name>', 'repository identifier (auto-detected from git remote if omitted)')
     .action(
       async (
         prNumber: string | undefined,
@@ -134,7 +135,7 @@ function main(argv: string[]): void {
     .command('explain <prNumber>')
     .description('Print the human-readable rationale for a PR decision.')
     .option('--json', 'machine-readable output')
-    .option('--repository <owner/name>', 'repository identifier (required)')
+    .option('--repository <owner/name>', 'repository identifier (auto-detected from git remote if omitted)')
     .action(
       async (
         prNumber: string,
@@ -147,6 +148,8 @@ function main(argv: string[]): void {
         process.exit(code);
       },
     );
+
+  program.addCommand(buildAgentCommand());
 
   program.exitOverride((err) => {
     // Commander's default exits with code 1 on usage errors. Map to 64 (USAGE)
