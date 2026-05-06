@@ -118,6 +118,40 @@ describe('readCredentials', () => {
 
     expect(readCredentials()).toBeNull();
   });
+
+  it('auto-tightens a world-readable credentials file and warns', () => {
+    writeCredentials({
+      apiUrl: 'https://api.example.test',
+      accessToken: 'mcp_re_secret',
+      issuedAt: '2026-05-04T18:00:00.000Z',
+    });
+    const file = path.join(tmpRoot, 'reentry', 'credentials.json');
+    fs.chmodSync(file, 0o644);
+
+    // Capture stderr — readCredentials should warn but still succeed.
+    const writes: string[] = [];
+    const original = process.stderr.write.bind(process.stderr);
+    (process.stderr.write as unknown as (s: string) => boolean) = ((
+      s: string,
+    ): boolean => {
+      writes.push(s);
+      return true;
+    }) as typeof process.stderr.write;
+
+    try {
+      const result = readCredentials();
+      expect(result?.accessToken).toBe('mcp_re_secret');
+    } finally {
+      process.stderr.write = original;
+    }
+
+    // Mode should now be 0600.
+    const perms = fs.statSync(file).mode & 0o777;
+    expect(perms).toBe(0o600);
+
+    // A warning should have been written.
+    expect(writes.some((w) => w.includes('tightening to 0600'))).toBe(true);
+  });
 });
 
 describe('deleteCredentials', () => {

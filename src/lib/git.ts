@@ -25,6 +25,39 @@ export function readCurrentBranch(): string | null {
   return runGit(['rev-parse', '--abbrev-ref', 'HEAD'])?.trim() || null;
 }
 
+/**
+ * Read `owner/repo` from `git remote get-url origin`, parsing both SSH
+ * (`git@github.com:owner/repo.git`) and HTTPS (`https://github.com/owner/repo[.git]`)
+ * forms. Returns null if not in a repo, no `origin` remote, or the URL
+ * doesn't match a recognized GitHub shape — caller is expected to fall
+ * back to requiring an explicit --repository flag.
+ *
+ * Only GitHub is recognized for v0.2 (matches the backend's GitHub-first
+ * integration). GitLab/Bitbucket parsing can be added when those backends
+ * are added.
+ */
+export function readRemoteOriginUrl(): string | null {
+  const raw = runGit(['config', '--get', 'remote.origin.url']);
+  if (!raw) {
+    return null;
+  }
+  const url = raw.trim();
+
+  // SSH: git@github.com:owner/repo.git
+  const sshMatch = url.match(/^git@github\.com:([^/]+)\/(.+?)(?:\.git)?$/);
+  if (sshMatch) {
+    return `${sshMatch[1]}/${sshMatch[2]}`;
+  }
+
+  // HTTPS: https://github.com/owner/repo[.git]
+  const httpsMatch = url.match(/^https?:\/\/github\.com\/([^/]+)\/(.+?)(?:\.git)?$/);
+  if (httpsMatch) {
+    return `${httpsMatch[1]}/${httpsMatch[2]}`;
+  }
+
+  return null;
+}
+
 function runGit(args: string[]): string | null {
   const result = spawnSync('git', args, {
     encoding: 'utf8',

@@ -30,6 +30,28 @@ export function readCredentials(): Credentials | null {
     return null;
   }
 
+  // Validate file mode is 0600. We wrote it that way; if it's been loosened
+  // (manual chmod, restore from backup, dotfile sync) auto-tighten and warn
+  // once. Stay friendly here — refusing to load would break users who didn't
+  // know the mode drifted. Testing showed this is silent today.
+  try {
+    const stat = fs.statSync(file);
+    const mode = stat.mode & 0o777;
+    if (mode !== 0o600) {
+      process.stderr.write(
+        `warning: credentials file ${file} was mode ${mode.toString(8).padStart(4, '0')}; tightening to 0600.\n`,
+      );
+      try {
+        fs.chmodSync(file, 0o600);
+      } catch {
+        // chmod can fail on platforms without POSIX perms (Windows/WSL edge);
+        // we still return the credentials — the warning is the contract.
+      }
+    }
+  } catch {
+    // statSync can race with delete; treat as harmless.
+  }
+
   try {
     const parsed = JSON.parse(raw) as Partial<Credentials>;
     if (
