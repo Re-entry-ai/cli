@@ -99,8 +99,12 @@ export function addClaudeCode(
     fs.chmodSync(configPath, 0o600);
   } catch (err) {
     const detail = err instanceof Error ? err.message : 'unknown error';
+    // Log the basename only — full paths can leak home dir / project layout
+    // to centralized log collectors. The user knows where their own MCP
+    // config lives; if they don't, the printed file write line above has
+    // already shown the path.
     process.stderr.write(
-      `warning: could not chmod 0600 ${path.basename(configPath)} (${detail}). The bearer token may be readable by other local users — manually run: chmod 0600 "${configPath}"\n`,
+      `warning: could not chmod 0600 ${path.basename(configPath)} (${detail}). The bearer token may be readable by other local users.\n`,
     );
   }
 

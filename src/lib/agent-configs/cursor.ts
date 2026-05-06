@@ -75,8 +75,10 @@ export function addCursor(
 		fs.chmodSync(configPath, 0o600);
 	} catch (err) {
 		const detail = err instanceof Error ? err.message : "unknown error";
+		// Log basename only — full paths leak project layout to centralized
+		// log collectors. Same posture as agent-configs/claude-code.ts.
 		process.stderr.write(
-			`warning: could not chmod 0600 ${path.basename(configPath)} (${detail}). The bearer token may be readable by other local users — manually run: chmod 0600 "${configPath}"\n`,
+			`warning: could not chmod 0600 ${path.basename(configPath)} (${detail}). The bearer token may be readable by other local users.\n`,
 		);
 	}
 

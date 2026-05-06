@@ -82,6 +82,13 @@ export function validateApiUrl(input: string): URL {
  *   "https://gateway.example.com/r/"   → "https://gateway.example.com/r/mcp"
  *   "http://localhost:3003"            → "http://localhost:3003/mcp"
  *
+ * Contract:
+ * - apiUrl is the BACKEND ROOT, not the MCP endpoint. Passing
+ *   "https://api.re-entry.ai/mcp" produces ".../mcp/mcp" (the suffix is
+ *   appended unconditionally). The device-flow login writes apiUrl from the
+ *   backend's resolved root, so this can only happen via manual edits to
+ *   credentials.json.
+ *
  * Throws `InvalidApiUrlError` on rejected input (see `validateApiUrl`).
  */
 export function toMcpUrl(apiUrl: string): string {

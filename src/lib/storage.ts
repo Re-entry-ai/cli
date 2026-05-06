@@ -52,9 +52,10 @@ export function readCredentials(): Credentials | null {
         // or when the file is owned by another user (e.g., after a sudo mishap).
         // Surface the failure so the user knows the bearer token is still
         // world-readable — silent failure on a security operation is a smell.
+        // Basename only; the credentials path is well-known (~/.config/reentry).
         const detail = err instanceof Error ? err.message : 'unknown error';
         process.stderr.write(
-          `warning: could not tighten ${path.basename(file)} permissions (${detail}). Run: chmod 0600 "${path.basename(file)}"\n`,
+          `warning: could not tighten ${path.basename(file)} permissions (${detail}); the bearer token may be readable by other local users.\n`,
         );
       }
     }
