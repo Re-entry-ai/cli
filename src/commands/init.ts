@@ -141,6 +141,11 @@ export async function initCommand(options: InitOptions): Promise<number> {
     kleur.dim('    • Commit normally — risky changes will be flagged.\n'),
   );
   process.stdout.write(
+    kleur.dim(
+      '    • Wire your IDE: `reentry agent add claude-code` (or `cursor`).\n',
+    ),
+  );
+  process.stdout.write(
     kleur.dim('    • Run `reentry observe` to see live agent activity.\n'),
   );
   process.stdout.write(
