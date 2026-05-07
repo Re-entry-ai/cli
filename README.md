@@ -51,16 +51,85 @@ reentry agent add cursor
 
 ---
 
-## Typical workflow
+## Recommended workflows
 
-A day-in-the-life view — what `reentry` is doing while you work.
+Concrete, copy-pasteable workflows for the situations you'll hit most often. Pick the one that matches your day.
 
-1. **`reentry init`** in your repo, once. Token stored at `~/.config/reentry/credentials.json` (mode `0600`). Pre-commit hook installed.
-2. **`reentry agent add claude-code`** (or `cursor`). The MCP server entry is added to the IDE's config; your AI agents can now call governance tools natively.
-3. **You write code normally.** No prompting, no UI, no overhead. The pre-commit hook fires on every `git commit`.
-4. **A risky change is staged** — say, a migration that touches `auth.service.ts`. The hook calls `reentry pre-commit`, which runs the heuristic + LLM risk pass. If the score crosses threshold, the commit is blocked (exit `1`) with a one-paragraph reason and a link to the dashboard.
-5. **`reentry observe`** in another terminal lets you tail agent activity live: which tools were called, which got blocked, latency, risk scores. Useful when you've got an autonomous agent running unattended overnight.
-6. **`reentry status` / `reentry explain <pr>`** when you want a verdict on a specific branch or PR — same governance result the dashboard shows, in your terminal. Auto-detects the repo from `git remote get-url origin`.
+### A. Solo developer, AI-pair workflow
+
+You're coding with Claude Code or Cursor. You want re-entry running automatically.
+
+```sh
+reentry init                           # one-time setup
+reentry agent add claude-code          # wire MCP into Claude Code
+# now write code; the pre-commit hook + your agent's MCP calls do the work
+```
+
+What this gets you:
+- Git commits fire `reentry pre-commit` automatically; risky diffs blocked with a one-paragraph reason.
+- Claude Code's MCP integration (`mcp__reentry-ai__*`) lets the agent call governance tools mid-flight — `pre_commit_check`, `get_team_rules`, `check_file_risk`, `decide_action`.
+- No browser tab needed for the daily loop.
+
+### B. Investigating a flagged PR
+
+A PR was blocked or flagged as `requires_human`. You want the full review without opening the dashboard.
+
+```sh
+reentry review 142                              # full structured review for PR #142
+reentry explain 142                             # human-readable rationale
+reentry fixes --pr 142 | claude                 # pipe agent-paste fixes into Claude Code
+```
+
+What this gets you:
+- `review` returns the same content the dashboard's PR review panel shows — AI summary, verify focus, severity-grouped inline findings, suggestions, cross-file findings.
+- `fixes` returns ready-to-execute agent instructions wrapped in BEGIN/END delimiters; pipe straight into your AI agent.
+
+### C. CI gate
+
+You want a hard CI gate that blocks bad PRs before merge.
+
+```yaml
+# .github/workflows/reentry-gate.yml
+- run: npm i -g @reentry-ai/cli
+- run: reentry status --json --repository ${{ github.repository }} ${{ github.event.pull_request.number }}
+  env:
+    REENTRY_API_URL: https://api.re-entry.ai
+    REENTRY_TOKEN: ${{ secrets.REENTRY_TOKEN }}
+```
+
+What this gets you:
+- Exit code `0` = allowed, `1` = blocked, `2` = requires human review, `64-77` = other CI-actionable conditions (per the BSD `sysexits.h` convention).
+- `--json` on every command for parseable output. Reliable structured envelopes on errors too (`{success: false, code, message}`).
+
+### D. Pre-merge check on a feature branch
+
+Local validation before opening a PR.
+
+```sh
+reentry status              # auto-detects repo + current branch
+# or, with explicit PR number:
+reentry status 142
+```
+
+### E. Auditing recent activity
+
+```sh
+reentry log --limit 20                  # last 20 assessments across all monitored repos
+reentry log --repository acme/api       # filter to one repo
+reentry log --kind push                 # only direct-push assessments
+reentry observe                         # live SSE tail of agent sessions
+```
+
+### F. Onboarding a new team member
+
+```sh
+npm i -g @reentry-ai/cli
+reentry init               # sets up auth, hook, runs first check
+reentry rules              # show team policies + high-risk patterns + required practices
+reentry agent add claude-code
+```
+
+`reentry rules` is the "what does my team enforce?" command. Outputs the active policies, high-risk patterns to avoid, and required practices — same canonical list the team's dashboard owner configured.
 
 ---
 
