@@ -15,6 +15,7 @@ import { rulesCommand } from './commands/rules';
 import { fixesCommand } from './commands/fixes';
 import { reviewCommand } from './commands/review';
 import { logCommand } from './commands/log';
+import { verifyCommand } from './commands/verify';
 
 /**
  * `reentry` CLI entry point.
@@ -154,6 +155,22 @@ function main(argv: string[]): void {
     );
 
   program.addCommand(buildAgentCommand());
+
+  program
+    .command('verify [path]')
+    .description(
+      'Verify the integrity hash of a compliance export (.json or .csv). Recomputes the SHA-256 chain hash locally — no backend call.',
+    )
+    .option('--json', 'machine-readable output')
+    .action(
+      async (
+        pathArg: string | undefined,
+        options: { json?: boolean },
+      ) => {
+        const code = await verifyCommand(pathArg, { json: options.json });
+        process.exit(code);
+      },
+    );
 
   program
     .command('rules')
