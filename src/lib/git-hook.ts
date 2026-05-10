@@ -13,7 +13,7 @@ const HOOK_BODY = `#!/bin/sh
 ${HOOK_MARKER}
 # Run re-entry pre-commit governance check. Exit non-zero to block the commit.
 # Auto-skip the check if reentry isn't installed (don't break the team for
-# someone who hasn't run \`npm i -g @reentry-ai/cli\` yet).
+# someone who hasn't run \`npm i -g @re-entry.ai/cli\` yet).
 if ! command -v reentry >/dev/null 2>&1; then
   exit 0
 fi
