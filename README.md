@@ -10,7 +10,7 @@
 - 🚦 **Block at the boundary, not in code review** — fail commits before they leave the laptop; non-zero exit codes wire cleanly into CI.
 
 ```sh
-npm i -g @reentry-ai/cli && reentry init
+npm i -g @re-entry.ai/cli && reentry init
 ```
 
 ---
@@ -34,7 +34,7 @@ npm i -g @reentry-ai/cli && reentry init
 
 ```sh
 # 1. Install
-npm i -g @reentry-ai/cli
+npm i -g @re-entry.ai/cli
 
 # 2. Set up: device-flow login, install pre-commit hook, run first check
 reentry init
@@ -90,7 +90,7 @@ You want a hard CI gate that blocks bad PRs before merge.
 
 ```yaml
 # .github/workflows/reentry-gate.yml
-- run: npm i -g @reentry-ai/cli
+- run: npm i -g @re-entry.ai/cli
 - run: reentry status --json --repository ${{ github.repository }} ${{ github.event.pull_request.number }}
   env:
     REENTRY_API_URL: https://api.re-entry.ai
@@ -123,7 +123,7 @@ reentry observe                         # live SSE tail of agent sessions
 ### F. Onboarding a new team member
 
 ```sh
-npm i -g @reentry-ai/cli
+npm i -g @re-entry.ai/cli
 reentry init               # sets up auth, hook, runs first check
 reentry rules              # show team policies + high-risk patterns + required practices
 reentry agent add claude-code

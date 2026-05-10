@@ -1,6 +1,6 @@
 {
-  "name": "@reentry-ai/cli",
-  "version": "0.3.0",
+  "name": "@re-entry.ai/cli",
+  "version": "0.3.1",
   "description": "Command-line interface for re-entry.ai. Governance for autonomous coding agents, in your terminal.",
   "bin": {
     "reentry": "./bin/reentry"

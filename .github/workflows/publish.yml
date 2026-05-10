@@ -1,0 +1,66 @@
+# Publishes @re-entry.ai/cli to npm with provenance.
+#
+# Triggers:
+#   - Push of a tag matching v*  (e.g. v0.3.2 → publishes 0.3.2)
+#   - Manual workflow_dispatch    (publishes whatever is in package.json)
+#
+# Requirements:
+#   - Repo secret NPM_TOKEN  — automation token from npm with publish access
+#                              to the @re-entry.ai org.
+#   - Repo is public — required for free npm provenance.
+#
+# Provenance is what makes a published package verifiable: npm records the
+# exact GitHub Actions run + commit SHA that produced the tarball, and
+# downstream consumers can verify it via `npm audit signatures`.
+
+name: Publish to npm
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18.18.0'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      - name: Verify tag matches package version
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          if [ "$TAG_VERSION" != "$PKG_VERSION" ]; then
+            echo "Tag $GITHUB_REF_NAME does not match package.json version $PKG_VERSION"
+            exit 1
+          fi
+
+      - name: Publish
+        run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
