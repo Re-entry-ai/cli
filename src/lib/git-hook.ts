@@ -66,6 +66,90 @@ export function installPreCommitHook(): HookInstallResult {
   return { kind: 'installed', path: hookPath };
 }
 
+export type HookRemoveResult =
+  | { kind: 'removed'; path: string }
+  | {
+      kind: 'restored_backup';
+      path: string;
+      backup: string;
+    }
+  | { kind: 'absent' }
+  | { kind: 'foreign_hook'; path: string }
+  | { kind: 'not_a_repo' };
+
+/**
+ * Counterpart of `installPreCommitHook` for `reentry disable`.
+ *
+ * Behaviour:
+ *  - Not in a git repo → `not_a_repo`.
+ *  - No pre-commit hook → `absent` (nothing to do).
+ *  - Hook IS managed by reentry-cli (HOOK_MARKER present):
+ *      - If `.reentry-backup` exists alongside, restore it (the user had
+ *        a custom hook before `reentry init`; we put it back).
+ *      - Otherwise, delete the file.
+ *  - Hook exists but is NOT managed by reentry-cli → `foreign_hook`
+ *    (refuse to delete someone else's hook).
+ *
+ * The credentials file is left alone — `reentry logout` is the right tool
+ * for that. `disable` only undoes what `init` did.
+ */
+export function removePreCommitHook(): HookRemoveResult {
+  const gitDir = findGitDir();
+  if (!gitDir) {
+    return { kind: 'not_a_repo' };
+  }
+
+  const hookPath = path.join(gitDir, 'hooks', 'pre-commit');
+  if (!fs.existsSync(hookPath)) {
+    return { kind: 'absent' };
+  }
+
+  const existing = fs.readFileSync(hookPath, 'utf8');
+  if (!existing.includes(HOOK_MARKER)) {
+    return { kind: 'foreign_hook', path: hookPath };
+  }
+
+  const backupPath = `${hookPath}.reentry-backup`;
+  if (fs.existsSync(backupPath)) {
+    const backupBody = fs.readFileSync(backupPath, 'utf8');
+    fs.writeFileSync(hookPath, backupBody, { mode: 0o755 });
+    fs.unlinkSync(backupPath);
+    return { kind: 'restored_backup', path: hookPath, backup: backupPath };
+  }
+
+  fs.unlinkSync(hookPath);
+  return { kind: 'removed', path: hookPath };
+}
+
+/**
+ * Inspect the current pre-commit hook without changing anything. Used by
+ * `reentry doctor` to report installation state.
+ */
+export function probePreCommitHook(): {
+  inRepo: boolean;
+  exists: boolean;
+  managedByReentry: boolean;
+  path: string | null;
+} {
+  const gitDir = findGitDir();
+  if (!gitDir) {
+    return { inRepo: false, exists: false, managedByReentry: false, path: null };
+  }
+
+  const hookPath = path.join(gitDir, 'hooks', 'pre-commit');
+  if (!fs.existsSync(hookPath)) {
+    return { inRepo: true, exists: false, managedByReentry: false, path: hookPath };
+  }
+
+  const existing = fs.readFileSync(hookPath, 'utf8');
+  return {
+    inRepo: true,
+    exists: true,
+    managedByReentry: existing.includes(HOOK_MARKER),
+    path: hookPath,
+  };
+}
+
 /**
  * Locate the `.git` directory for the cwd. Uses `git rev-parse --git-dir`
  * which handles worktrees, submodules, and `GIT_DIR` overrides cleanly.

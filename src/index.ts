@@ -16,6 +16,8 @@ import { fixesCommand } from './commands/fixes';
 import { reviewCommand } from './commands/review';
 import { logCommand } from './commands/log';
 import { verifyCommand } from './commands/verify';
+import { doctorCommand } from './commands/doctor';
+import { disableCommand } from './commands/disable';
 
 /**
  * `reentry` CLI entry point.
@@ -95,6 +97,28 @@ function main(argv: string[]): void {
     .option('--json', 'machine-readable output')
     .action(async (options: { json?: boolean }) => {
       const code = await whoamiCommand({ json: options.json });
+      process.exit(code);
+    });
+
+  program
+    .command('doctor')
+    .description(
+      'Diagnose your reentry setup: credentials, backend reachability, git hook, IDE agent configs, CLI version.',
+    )
+    .option('--json', 'machine-readable output')
+    .action(async (options: { json?: boolean }) => {
+      const code = await doctorCommand({ json: options.json });
+      process.exit(code);
+    });
+
+  program
+    .command('disable')
+    .description(
+      'Counterpart to `init`: remove the pre-commit hook (restore any backup). Leaves credentials alone; use `reentry logout` to remove the token.',
+    )
+    .option('--json', 'machine-readable output')
+    .action(async (options: { json?: boolean }) => {
+      const code = await disableCommand({ json: options.json });
       process.exit(code);
     });
 

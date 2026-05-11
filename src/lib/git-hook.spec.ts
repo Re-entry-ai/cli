@@ -9,7 +9,11 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { spawnSync } from 'child_process';
-import { installPreCommitHook } from './git-hook';
+import {
+  installPreCommitHook,
+  removePreCommitHook,
+  probePreCommitHook,
+} from './git-hook';
 
 let prevCwd: string;
 let tmpRoot: string;
@@ -103,5 +107,101 @@ describe('installPreCommitHook', () => {
     const refreshed = fs.readFileSync(hookPath, 'utf8');
     expect(refreshed).toContain('reentry pre-commit');
     expect(refreshed).not.toContain('echo old-version');
+  });
+});
+
+describe('removePreCommitHook', () => {
+  it('returns not_a_repo when cwd is not a git repository', () => {
+    expect(removePreCommitHook().kind).toBe('not_a_repo');
+  });
+
+  it('returns absent when there is no pre-commit hook at all', () => {
+    gitInit();
+    expect(removePreCommitHook().kind).toBe('absent');
+  });
+
+  it('deletes a managed hook that has no backup alongside', () => {
+    gitInit();
+    const installed = installPreCommitHook();
+    if (installed.kind !== 'installed') {
+      throw new Error('precondition: install should succeed');
+    }
+
+    const result = removePreCommitHook();
+    expect(result.kind).toBe('removed');
+    expect(fs.existsSync(installed.path)).toBe(false);
+  });
+
+  it('restores .reentry-backup over the managed hook when present', () => {
+    gitInit();
+
+    // Seed a user hook, then install reentry — that produces a backup.
+    const hookPath = path.join('.git', 'hooks', 'pre-commit');
+    fs.mkdirSync(path.dirname(hookPath), { recursive: true });
+    fs.writeFileSync(hookPath, '#!/bin/sh\necho "user-hook"\n', { mode: 0o755 });
+
+    const installed = installPreCommitHook();
+    expect(installed.kind).toBe('preserved_existing');
+
+    const result = removePreCommitHook();
+    expect(result.kind).toBe('restored_backup');
+
+    // The user's original body should be back at the hook path; the
+    // backup file should be gone.
+    const restored = fs.readFileSync(hookPath, 'utf8');
+    expect(restored).toBe('#!/bin/sh\necho "user-hook"\n');
+    expect(fs.existsSync(`${hookPath}.reentry-backup`)).toBe(false);
+  });
+
+  it('refuses to delete a foreign pre-commit hook (no marker line)', () => {
+    gitInit();
+    const hookPath = path.join('.git', 'hooks', 'pre-commit');
+    fs.mkdirSync(path.dirname(hookPath), { recursive: true });
+    fs.writeFileSync(hookPath, '#!/bin/sh\necho "foreign hook"\n', {
+      mode: 0o755,
+    });
+
+    const result = removePreCommitHook();
+    expect(result.kind).toBe('foreign_hook');
+    // The foreign hook should be untouched.
+    expect(fs.readFileSync(hookPath, 'utf8')).toBe(
+      '#!/bin/sh\necho "foreign hook"\n',
+    );
+  });
+});
+
+describe('probePreCommitHook', () => {
+  it('reports inRepo=false outside a git repo', () => {
+    const probe = probePreCommitHook();
+    expect(probe.inRepo).toBe(false);
+    expect(probe.exists).toBe(false);
+  });
+
+  it('reports exists=false when there is no hook in the repo', () => {
+    gitInit();
+    const probe = probePreCommitHook();
+    expect(probe.inRepo).toBe(true);
+    expect(probe.exists).toBe(false);
+    expect(probe.managedByReentry).toBe(false);
+  });
+
+  it('reports managedByReentry=true after a reentry install', () => {
+    gitInit();
+    installPreCommitHook();
+
+    const probe = probePreCommitHook();
+    expect(probe.exists).toBe(true);
+    expect(probe.managedByReentry).toBe(true);
+  });
+
+  it('reports managedByReentry=false for a foreign hook', () => {
+    gitInit();
+    const hookPath = path.join('.git', 'hooks', 'pre-commit');
+    fs.mkdirSync(path.dirname(hookPath), { recursive: true });
+    fs.writeFileSync(hookPath, '#!/bin/sh\necho "not ours"\n', { mode: 0o755 });
+
+    const probe = probePreCommitHook();
+    expect(probe.exists).toBe(true);
+    expect(probe.managedByReentry).toBe(false);
   });
 });
