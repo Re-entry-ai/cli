@@ -1,0 +1,73 @@
+name: Bug report
+description: Report a defect in the CLI
+title: "[bug]: "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug report.
+
+        For security vulnerabilities, please email **security@re-entry.ai** instead — see [SECURITY.md](https://github.com/Re-entry-ai/cli/blob/main/SECURITY.md).
+  - type: input
+    id: cli-version
+    attributes:
+      label: CLI version
+      description: Output of `reentry --version`.
+      placeholder: "0.3.1"
+    validations:
+      required: true
+  - type: input
+    id: node-version
+    attributes:
+      label: Node.js version
+      description: Output of `node --version`.
+      placeholder: "v18.18.0"
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      placeholder: "macOS 14.5 / Ubuntu 22.04 / Windows 11"
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear description of the bug.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: Minimal commands or repo state needed to reproduce.
+      placeholder: |
+        1. `reentry init`
+        2. `git commit -m "..."`
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / output
+      description: Paste relevant CLI output. Run with `--json` if useful. Redact tokens.
+      render: shell
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Confirmation
+      options:
+        - label: I have searched [existing issues](https://github.com/Re-entry-ai/cli/issues?q=is%3Aissue) and this is not a duplicate.
+          required: true
+        - label: I have removed any tokens or secrets from the logs above.
+          required: true

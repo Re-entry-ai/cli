@@ -1,0 +1,51 @@
+name: Feature request
+description: Suggest an enhancement to the CLI
+title: "[feat]: "
+labels: ["enhancement", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to suggest an enhancement.
+
+        Please open an issue *before* sending a pull request for non-trivial changes — it saves both of us time if the design needs adjustment.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What are you trying to do that the CLI does not currently support?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: How would you like this to work? Concrete commands, flags, or output examples are helpful.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Other approaches you tried or considered.
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Which surface does this affect?
+      multiple: true
+      options:
+        - CLI command
+        - Pre-commit hook
+        - MCP server / agent integration
+        - --json output schema
+        - Documentation
+        - Other
+    validations:
+      required: true
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Confirmation
+      options:
+        - label: I have searched [existing issues](https://github.com/Re-entry-ai/cli/issues?q=is%3Aissue) and this is not a duplicate.
+          required: true
