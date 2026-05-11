@@ -1,17 +1,41 @@
-# re-entry.ai CLI
+<h1 align="center">re-entry.ai CLI</h1>
 
-> Governance for autonomous coding agents, in your terminal.
+<p align="center">
+  <strong>Governance for autonomous coding agents, in your terminal.</strong>
+</p>
+
+<p align="center">
+  <a href="https://www.npmjs.com/package/@re-entry.ai/cli"><img src="https://img.shields.io/npm/v/@re-entry.ai/cli?color=%231a1a1a&label=npm&style=flat-square" alt="npm version"></a>
+  <a href="https://www.npmjs.com/package/@re-entry.ai/cli"><img src="https://img.shields.io/npm/dm/@re-entry.ai/cli?color=%231a1a1a&label=downloads&style=flat-square" alt="npm downloads"></a>
+  <a href="https://github.com/Re-entry-ai/cli/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/Re-entry-ai/cli/ci.yml?branch=main&style=flat-square&label=ci" alt="ci"></a>
+  <a href="https://github.com/Re-entry-ai/cli/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-1a1a1a?style=flat-square" alt="license"></a>
+  <a href="https://nodejs.org"><img src="https://img.shields.io/badge/node-%E2%89%A518.18-1a1a1a?style=flat-square" alt="node ≥ 18.18"></a>
+  <a href="https://re-entry.ai"><img src="https://img.shields.io/badge/website-re--entry.ai-1a1a1a?style=flat-square" alt="website"></a>
+</p>
+
+<p align="center">
+  <a href="#quick-start">Quick start</a> ·
+  <a href="#why-re-entry">Why re-entry</a> ·
+  <a href="#commands-reference">Commands</a> ·
+  <a href="#exit-codes">Exit codes</a> ·
+  <a href="#security--privacy">Security</a> ·
+  <a href="https://re-entry.ai/documentation">Docs</a>
+</p>
+
+---
 
 `reentry` brings the re-entry.ai control plane to where developers actually work — local shells, CI pipelines, and AI coding agents (Claude Code, Cursor) over MCP. It's quiet on the happy path, intervenes only when risk or policy says so, and explains every decision.
-
-- 🛡️ **Detect risk on every commit, push, and PR** — heuristic scoring + LLM review, scored against your team's policies.
-- 🤖 **Govern AI coding agents via MCP** — the same governance the dashboard runs is one config block away from Claude Code or Cursor.
-- 📡 **Live observation of agent sessions** — `reentry observe` tails what your agents are doing in real time.
-- 🚦 **Block at the boundary, not in code review** — fail commits before they leave the laptop; non-zero exit codes wire cleanly into CI.
 
 ```sh
 npm i -g @re-entry.ai/cli && reentry init
 ```
+
+## Why re-entry
+
+- 🛡️ **Detect risk on every commit, push, and PR** — heuristic scoring plus LLM review, scored against your team's policies.
+- 🤖 **Govern AI coding agents via MCP** — the same governance the dashboard runs is one config block away from Claude Code or Cursor.
+- 📡 **Live observation of agent sessions** — `reentry observe` tails what your agents are doing in real time.
+- 🚦 **Block at the boundary, not in code review** — fail commits before they leave the laptop; non-zero exit codes wire cleanly into CI.
 
 ---
 
@@ -305,10 +329,18 @@ After local edits: rerun `npm run build` (the `npm link` symlink stays valid).
 
 ---
 
+## Community & support
+
+- 💬 **Questions & discussion** — open a [GitHub Discussion](https://github.com/Re-entry-ai/cli/discussions) or email <dev@re-entry.ai>.
+- 🐞 **Bug reports** — [github.com/Re-entry-ai/cli/issues](https://github.com/Re-entry-ai/cli/issues/new/choose).
+- 🔐 **Security** — see [SECURITY.md](./SECURITY.md). Do not open public issues for vulnerabilities.
+- 🧭 **Code of conduct** — see [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md).
+- 🤝 **Contributing** — see [CONTRIBUTING.md](./CONTRIBUTING.md). PRs welcome.
+
 ## License
 
 MIT — see [LICENSE](./LICENSE).
 
-## Reporting bugs
-
-<https://github.com/Re-entry-ai/cli/issues>
+<p align="center">
+  Made in Germany · <a href="https://re-entry.ai">re-entry.ai</a>
+</p>

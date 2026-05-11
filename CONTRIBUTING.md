@@ -59,6 +59,27 @@ CI runs typecheck + test + build on every PR; merges are blocked until it's gree
 - Keep stdout machine-friendly when `--json` is set (no decorative output to stdout in JSON mode).
 - Errors go to stderr; exit codes follow the BSD `sysexits.h` convention documented in the [README](./README.md#exit-codes).
 
+## Maintainer setup: branch protection
+
+`main` is protected. Contributors cannot push directly; every change goes through a PR.
+
+The exact protection rules are versioned in [`scripts/branch-protection.json`](./scripts/branch-protection.json) and can be reapplied at any time:
+
+```sh
+export GITHUB_TOKEN=...   # token with repo:admin on Re-entry-ai/cli
+bash scripts/setup-branch-protection.sh
+```
+
+In short:
+
+- No direct pushes to `main` (admins included — `enforce_admins: true`).
+- Every PR requires one approving review from a CODEOWNER.
+- Stale reviews are dismissed when new commits land.
+- All conversations must be resolved.
+- CI status checks (`test (18.18.0)`, `test (20.x)`, `packaging`) must pass.
+- Force pushes and branch deletion are disabled.
+- Linear history (rebase or squash merges only).
+
 ## Releasing (maintainers only)
 
 Releases are published to npm with [provenance](https://docs.npmjs.com/generating-provenance-statements) by `.github/workflows/publish.yml` when a `v*` tag is pushed:
