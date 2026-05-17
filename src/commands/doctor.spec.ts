@@ -36,10 +36,17 @@ jest.mock('../lib/mcp-client', () => {
   const actual = jest.requireActual('../lib/mcp-client');
   return { ...actual, callMcpTool: jest.fn() };
 });
+// `readRemoteOriginUrl` shells out to `git remote get-url origin`. Mocking
+// the module here keeps the tests pure (no real git subprocess) and lets
+// each scenario drive the inferred-repo value explicitly.
+jest.mock('../lib/git', () => ({
+  readRemoteOriginUrl: jest.fn(),
+}));
 
 import * as storage from '../lib/storage';
 import * as configModule from '../lib/config';
 import * as mcpClient from '../lib/mcp-client';
+import * as git from '../lib/git';
 
 const readCredentials = storage.readCredentials as jest.MockedFunction<
   typeof storage.readCredentials
@@ -49,6 +56,9 @@ const credentialsPathMock = configModule.credentialsPath as jest.MockedFunction<
 >;
 const callMcpTool = mcpClient.callMcpTool as jest.MockedFunction<
   typeof mcpClient.callMcpTool
+>;
+const readRemoteOriginUrl = git.readRemoteOriginUrl as jest.MockedFunction<
+  typeof git.readRemoteOriginUrl
 >;
 
 const stdoutSpy = jest
@@ -90,6 +100,7 @@ afterEach(() => {
   readCredentials.mockReset();
   callMcpTool.mockReset();
   credentialsPathMock.mockReset();
+  readRemoteOriginUrl.mockReset();
 });
 
 describe('doctorCommand — JSON output', () => {
@@ -185,6 +196,188 @@ describe('doctorCommand — JSON output', () => {
     const output = stdoutSpy.mock.calls.map((call) => call[0]).join('').trim();
     const parsed = JSON.parse(output);
     expect(parsed.version).toMatch(/^\d+\.\d+\.\d+/);
+  });
+});
+
+describe('doctorCommand — repo scope check', () => {
+  // Tests for the 7th check added to catch git-remote drift. Without it,
+  // users hit confusing SCOPE_VIOLATION errors with no obvious clue that
+  // `git remote -v` is the culprit (the typical cause is a repo rename
+  // / org transfer; redirects keep pushes working but every MCP call
+  // sends the stale slug). All branches must report `skip` or `warn`,
+  // never `fail` — doctor is informational, not a gate.
+
+  /** Helper: route mock to the right response per MCP tool. */
+  function mockMcpRouter(routes: Record<string, unknown>) {
+    callMcpTool.mockImplementation(((toolName: string) => {
+      if (toolName in routes) {
+        return Promise.resolve(routes[toolName]);
+      }
+      return Promise.reject(new Error(`unmocked tool: ${toolName}`));
+    }) as unknown as typeof mcpClient.callMcpTool);
+  }
+
+  function findRepoCheck(stdout: string): { status: string; detail: string } {
+    const parsed = JSON.parse(stdout);
+    return parsed.checks.find(
+      (check: { name: string }) => check.name === 'repo scope',
+    );
+  }
+
+  it('reports repo scope = skip when not logged in', async () => {
+    readCredentials.mockReturnValue(null);
+
+    await doctorCommand({ json: true });
+    const output = stdoutSpy.mock.calls.map((call) => call[0]).join('').trim();
+    const repoCheck = findRepoCheck(output);
+    expect(repoCheck.status).toBe('skip');
+    expect(repoCheck.detail).toContain('not logged in');
+  });
+
+  it('reports repo scope = skip when there is no github.com origin', async () => {
+    readCredentials.mockReturnValue(CREDS);
+    writeCredsFile(0o600);
+    readRemoteOriginUrl.mockReturnValue(null);
+    mockMcpRouter({
+      get_team_rules: { policies: [] },
+      list_recent_assessments: { items: [{ repository: 'team/repo' }] },
+    });
+
+    await doctorCommand({ json: true });
+    const output = stdoutSpy.mock.calls.map((call) => call[0]).join('').trim();
+    const repoCheck = findRepoCheck(output);
+    expect(repoCheck.status).toBe('skip');
+    expect(repoCheck.detail).toContain('--repository');
+  });
+
+  it('reports repo scope = warn when inferred repo is NOT in monitored set', async () => {
+    readCredentials.mockReturnValue(CREDS);
+    writeCredsFile(0o600);
+    readRemoteOriginUrl.mockReturnValue('wrong/stale-repo');
+    mockMcpRouter({
+      get_team_rules: { policies: [] },
+      list_recent_assessments: {
+        items: [
+          { repository: 'team/repo-a' },
+          { repository: 'team/repo-b' },
+        ],
+      },
+    });
+
+    await doctorCommand({ json: true });
+    const output = stdoutSpy.mock.calls.map((call) => call[0]).join('').trim();
+    const repoCheck = findRepoCheck(output);
+    expect(repoCheck.status).toBe('warn');
+    expect(repoCheck.detail).toContain('wrong/stale-repo');
+    expect(repoCheck.detail).toContain('SCOPE_VIOLATION');
+    // The sample of monitored repos must be present so the user can
+    // spot a typo / stale remote at a glance.
+    expect(repoCheck.detail).toContain('team/repo-a');
+  });
+
+  it('normalises case + `.git` suffix differences when comparing inferred repo to monitored set', async () => {
+    // Real-world drift: git remote often returns `Owner/Repo.git`
+    // (mixed case + suffix) while the backend persists `owner/repo`
+    // (lowercased). Without normalisation this combination silently
+    // warns despite the repo being monitored — the worst kind of
+    // bug because the user has no clue why doctor disagrees with
+    // every other command.
+    readCredentials.mockReturnValue(CREDS);
+    writeCredsFile(0o600);
+    readRemoteOriginUrl.mockReturnValue('Team/Repo-A.git');
+    mockMcpRouter({
+      get_team_rules: { policies: [] },
+      list_recent_assessments: {
+        items: [{ repository: 'team/repo-a' }],
+      },
+    });
+
+    await doctorCommand({ json: true });
+    const output = stdoutSpy.mock.calls.map((call) => call[0]).join('').trim();
+    const repoCheck = findRepoCheck(output);
+    expect(repoCheck.status).toBe('ok');
+    // Detail must echo the RAW remote string back to the user
+    // (so they recognise their config), not the normalised form.
+    expect(repoCheck.detail).toContain('Team/Repo-A.git');
+  });
+
+  it('reports repo scope = warn with a +N-more suffix when the team has many monitored repos', async () => {
+    readCredentials.mockReturnValue(CREDS);
+    writeCredsFile(0o600);
+    readRemoteOriginUrl.mockReturnValue('wrong/stale-repo');
+    mockMcpRouter({
+      get_team_rules: { policies: [] },
+      list_recent_assessments: {
+        items: [
+          { repository: 'team/repo-a' },
+          { repository: 'team/repo-b' },
+          { repository: 'team/repo-c' },
+          { repository: 'team/repo-d' },
+          { repository: 'team/repo-e' },
+        ],
+      },
+    });
+
+    await doctorCommand({ json: true });
+    const output = stdoutSpy.mock.calls.map((call) => call[0]).join('').trim();
+    const repoCheck = findRepoCheck(output);
+    expect(repoCheck.status).toBe('warn');
+    // 5 unique repos, sample shows 3, so we expect "+2 more".
+    expect(repoCheck.detail).toContain('+2 more');
+  });
+
+  it('reports repo scope = ok when inferred repo IS in monitored set', async () => {
+    readCredentials.mockReturnValue(CREDS);
+    writeCredsFile(0o600);
+    readRemoteOriginUrl.mockReturnValue('team/repo-a');
+    mockMcpRouter({
+      get_team_rules: { policies: [] },
+      list_recent_assessments: {
+        items: [
+          { repository: 'team/repo-a' },
+          { repository: 'team/repo-b' },
+        ],
+      },
+    });
+
+    await doctorCommand({ json: true });
+    const output = stdoutSpy.mock.calls.map((call) => call[0]).join('').trim();
+    const repoCheck = findRepoCheck(output);
+    expect(repoCheck.status).toBe('ok');
+    expect(repoCheck.detail).toContain('team/repo-a');
+  });
+
+  it('reports repo scope = skip when the backend assessments call fails (never fail — doctor is informational)', async () => {
+    readCredentials.mockReturnValue(CREDS);
+    writeCredsFile(0o600);
+    readRemoteOriginUrl.mockReturnValue('team/repo-a');
+    // get_team_rules succeeds (so the prior backend check is OK and we
+    // still reach the repo-scope branch), list_recent_assessments
+    // throws → checkGitRemoteScope catches → null → skip.
+    mockMcpRouter({
+      get_team_rules: { policies: [] },
+    });
+
+    await doctorCommand({ json: true });
+    const output = stdoutSpy.mock.calls.map((call) => call[0]).join('').trim();
+    const repoCheck = findRepoCheck(output);
+    expect(repoCheck.status).toBe('skip');
+  });
+
+  it('reports repo scope = skip when team has no recent assessments', async () => {
+    readCredentials.mockReturnValue(CREDS);
+    writeCredsFile(0o600);
+    readRemoteOriginUrl.mockReturnValue('team/repo-a');
+    mockMcpRouter({
+      get_team_rules: { policies: [] },
+      list_recent_assessments: { items: [] },
+    });
+
+    await doctorCommand({ json: true });
+    const output = stdoutSpy.mock.calls.map((call) => call[0]).join('').trim();
+    const repoCheck = findRepoCheck(output);
+    expect(repoCheck.status).toBe('skip');
+    expect(repoCheck.detail).toContain('no recent assessments');
   });
 });
 
