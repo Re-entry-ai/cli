@@ -18,6 +18,7 @@ import { logCommand } from './commands/log';
 import { verifyCommand } from './commands/verify';
 import { doctorCommand } from './commands/doctor';
 import { disableCommand } from './commands/disable';
+import { acceptFindingCommand } from './commands/accept-finding';
 
 /**
  * `reentry` CLI entry point.
@@ -228,6 +229,50 @@ function main(argv: string[]): void {
           pr: options.pr,
           branch: options.branch,
           repository: options.repository,
+        });
+        process.exit(code);
+      },
+    );
+
+  program
+    .command('accept-finding <findingId>')
+    .description(
+      "Mark a risk-engine finding as 'considered and accepted' so future gate runs suppress it. Useful when the LLM keeps re-flagging a design-philosophy preference the team has already decided on. The findingId is the 16-char hex hash shown next to each inline comment in `reentry pre-commit` / `reentry review` output.",
+    )
+    .option('--json', 'machine-readable output')
+    .option(
+      '--reason <text>',
+      'Required. 1-1000 chars. Why this finding is acceptable. Recorded in the audit trail with your identity + timestamp.',
+    )
+    .option(
+      '--repository <owner/name>',
+      'Repo scope (default: inferred from `git remote`).',
+    )
+    .option(
+      '--team-wide',
+      'Apply across every repo in the team. Mutually exclusive with --repository.',
+    )
+    .option(
+      '--expires <ISO-8601>',
+      'Auto-expire after this date (e.g. "2026-12-31T00:00:00Z"). Omit for permanent acceptance.',
+    )
+    .action(
+      async (
+        findingId: string,
+        options: {
+          json?: boolean;
+          reason?: string;
+          repository?: string;
+          teamWide?: boolean;
+          expires?: string;
+        },
+      ) => {
+        const code = await acceptFindingCommand(findingId, {
+          json: options.json,
+          reason: options.reason,
+          repository: options.repository,
+          teamWide: options.teamWide,
+          expires: options.expires,
         });
         process.exit(code);
       },
