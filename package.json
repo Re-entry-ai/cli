@@ -26,7 +26,7 @@
 	},
 	"dependencies": {
 		"clipboardy": "2.3.0",
-		"commander": "12.0.0",
+		"commander": "14.0.3",
 		"kleur": "4.1.5",
 		"ora": "5.4.1"
 	},
