@@ -134,24 +134,33 @@ export async function initCommand(options: InitOptions): Promise<number> {
   }
 
   process.stdout.write('\n');
-  process.stdout.write(`  ${kleur.green().bold("You're now protected.")}\n`);
+  process.stdout.write(`  ${kleur.green().bold('✓ re-entry is active.')}\n`);
   process.stdout.write('\n');
-  process.stdout.write(kleur.dim('  Next steps:\n'));
+  process.stdout.write(`  ${kleur.bold('Try it now:')}\n`);
   process.stdout.write(
-    kleur.dim('    • Commit normally — risky changes will be flagged.\n'),
+    `    ${kleur.dim('git add -p && git commit')}   ← risk check runs automatically\n`,
+  );
+  process.stdout.write('\n');
+  process.stdout.write(`  ${kleur.bold('Useful commands:')}\n`);
+  process.stdout.write(
+    `    ${kleur.cyan('reentry status')}              ← governance verdict for this branch\n`,
   );
   process.stdout.write(
-    kleur.dim(
-      '    • Wire your IDE: `reentry agent add claude-code` (or `cursor`).\n',
-    ),
+    `    ${kleur.cyan('reentry review <pr-number>')}  ← full AI code review\n`,
   );
   process.stdout.write(
-    kleur.dim('    • Run `reentry observe` to see live agent activity.\n'),
+    `    ${kleur.cyan('reentry rules')}               ← see your team guards\n`,
   );
   process.stdout.write(
-    kleur.dim(
-      '    • Invite your team: open the dashboard and share the team URL.\n',
-    ),
+    `    ${kleur.cyan('reentry observe')}             ← tail live agent decisions\n`,
+  );
+  process.stdout.write('\n');
+  process.stdout.write(`  ${kleur.bold('Wire your IDE agent:')}\n`);
+  process.stdout.write(
+    `    ${kleur.cyan('reentry agent add claude-code')}   ← Claude Code\n`,
+  );
+  process.stdout.write(
+    `    ${kleur.cyan('reentry agent add cursor')}         ← Cursor\n`,
   );
   process.stdout.write('\n');
 

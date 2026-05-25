@@ -38,9 +38,24 @@ function main(argv: string[]): void {
 
   program
     .name('reentry')
-    .description('Governance for autonomous coding agents, in your terminal.')
+    .description('AI code governance — risk checks, guard enforcement, and agent oversight, in your terminal.')
     .version(CLI_VERSION, '-v, --version', 'print the CLI version')
     .option('--no-color', 'disable colored output')
+    .addHelpText('after', `
+Examples:
+  reentry init                        First-time setup (login + git hook)
+  reentry pre-commit                  Check staged changes (auto-runs as git hook)
+  reentry status                      Governance verdict for current branch
+  reentry review 142                  AI code review for PR #142
+  reentry rules                       Show your team guards and high-risk patterns
+  reentry fixes                       Get fix instructions for current branch
+  reentry observe                     Tail live agent decisions in real time
+  reentry agent add claude-code       Wire Claude Code as a governed MCP agent
+  reentry accept-finding <id> --reason "..."   Suppress a known-safe finding
+  reentry doctor                      Diagnose credentials, hook, and agent setup
+
+Exit codes: 0 allowed · 1 blocked · 2 requires human review · 64 usage error · 65 auth · 66 network · 77 permission
+`)
     .hook('preAction', (cmd) => {
       const opts = cmd.opts<{ color?: boolean }>();
       if (opts.color === false) {
@@ -126,7 +141,7 @@ function main(argv: string[]): void {
   program
     .command('pre-commit')
     .description(
-      'Check the staged diff against team policies. Designed to be wired up as a git pre-commit hook.',
+      'Check staged changes against your team guards. Exit 0 (allowed), 1 (blocked by policy), 2 (requires human review). Runs automatically as a git hook after `reentry init`.',
     )
     .option('--json', 'machine-readable output')
     .action(async (options: { json?: boolean }) => {
@@ -200,7 +215,7 @@ function main(argv: string[]): void {
   program
     .command('rules')
     .description(
-      "Show your team's governance rules: active policies, high-risk patterns, required practices.",
+      "Show your team's active guards, high-risk file patterns, and required practices.",
     )
     .option('--json', 'machine-readable output')
     .action(async (options: { json?: boolean }) => {

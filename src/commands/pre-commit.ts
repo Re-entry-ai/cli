@@ -1,4 +1,5 @@
 import kleur from "kleur";
+import ora from "ora";
 import { ExitCodes, ExitCode } from "../lib/exit-codes";
 import { readCredentials } from "../lib/storage";
 import { readStagedDiff, readCurrentBranch } from "../lib/git";
@@ -16,6 +17,8 @@ interface PreCommitResponse {
 	summary: string;
 	reviewFocus: string;
 	keyFindings: string[];
+	/** Parallel array to keyFindings — 16-char hex IDs for `reentry accept-finding`. Present when the backend provides per-finding identifiers. */
+	findingIds?: string[];
 	inlineComments: Array<{
 		path: string;
 		line: number;
@@ -80,6 +83,8 @@ export async function preCommitCommand(
 
 	const branch = readCurrentBranch();
 
+	const spinner = options.json ? null : ora('Checking staged changes…').start();
+
 	try {
 		const result = await callMcpTool<PreCommitResponse>(
 			"pre_commit_check",
@@ -89,6 +94,8 @@ export async function preCommitCommand(
 			},
 			creds.accessToken,
 		);
+
+		spinner?.stop();
 
 		const exit = exitCodeForRisk(result.riskLevel);
 
@@ -100,6 +107,7 @@ export async function preCommitCommand(
 		renderPreCommit(result, exit);
 		return exit;
 	} catch (err) {
+		spinner?.stop();
 		return handleMcpError(err, "pre-commit check", { json: options.json });
 	}
 }
@@ -130,8 +138,14 @@ function renderPreCommit(result: PreCommitResponse, exit: ExitCode): void {
 
 	if (result.keyFindings.length > 0) {
 		process.stdout.write("  Key findings:\n");
-		for (const finding of result.keyFindings) {
-			process.stdout.write(`    • ${finding}\n`);
+		for (let i = 0; i < result.keyFindings.length; i++) {
+			const finding = result.keyFindings[i];
+			const findingId = result.findingIds?.[i];
+			const idSuffix = findingId ? kleur.dim(` [${findingId}]`) : '';
+			process.stdout.write(`    • ${finding}${idSuffix}\n`);
+		}
+		if (result.findingIds && result.findingIds.length > 0) {
+			process.stdout.write(kleur.dim('    To suppress a finding: reentry accept-finding <id> --reason "..."\n'));
 		}
 		process.stdout.write("\n");
 	}
@@ -143,6 +157,10 @@ function renderPreCommit(result: PreCommitResponse, exit: ExitCode): void {
 	} else if (exit === ExitCodes.REQUIRES_HUMAN) {
 		process.stdout.write(
 			`  ${kleur.yellow("⚠")} Review recommended before committing. ${kleur.dim(`See ${result.dashboardUrl}`)}\n`,
+		);
+	} else if (result.riskLevel.toLowerCase() === 'medium') {
+		process.stdout.write(
+			`  ${kleur.yellow("⚠")} ${kleur.yellow("MEDIUM")} risk — OK to commit, but review before merging.\n`,
 		);
 	} else {
 		process.stdout.write(`  ${kleur.green("✓")} OK to commit.\n`);

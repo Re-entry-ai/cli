@@ -1,4 +1,5 @@
 import kleur from "kleur";
+import ora from "ora";
 import { ExitCodes, ExitCode } from "../lib/exit-codes";
 import { readCredentials } from "../lib/storage";
 import { readCurrentBranch, readRemoteOriginUrl } from "../lib/git";
@@ -96,12 +97,19 @@ export async function statusCommand(
 		}
 	}
 
+	const statusLabel = args.prNumber
+		? `Checking PR #${String(args.prNumber)}…`
+		: `Checking branch ${String(args.branch ?? 'current')}…`;
+	const spinner = options.json ? null : ora(statusLabel).start();
+
 	try {
 		const result = await callMcpTool<DecideActionResponse>(
 			"decide_action",
 			args,
 			creds.accessToken,
 		);
+
+		spinner?.stop();
 
 		const exit = exitCodeForDecision(result.decision);
 
@@ -113,6 +121,7 @@ export async function statusCommand(
 		renderStatus(result, exit);
 		return exit;
 	} catch (err) {
+		spinner?.stop();
 		return handleMcpError(err, "status", { json: options.json });
 	}
 }

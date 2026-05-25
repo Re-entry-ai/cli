@@ -1,4 +1,5 @@
 import kleur from 'kleur';
+import ora from 'ora';
 import { ExitCodes } from '../lib/exit-codes';
 import { readCredentials } from '../lib/storage';
 import { readRemoteOriginUrl } from '../lib/git';
@@ -86,12 +87,16 @@ export async function reviewCommand(
     return ExitCodes.USAGE;
   }
 
+  const spinner = options.json ? null : ora(`Fetching review for PR #${prNumber}…`).start();
+
   try {
     const result = await callMcpTool<PrCodeReviewResponse>(
       'get_pr_code_review',
       { repository, prNumber },
       creds.accessToken,
     );
+
+    spinner?.stop();
 
     if (options.json) {
       process.stdout.write(JSON.stringify(result) + '\n');
@@ -101,6 +106,7 @@ export async function reviewCommand(
     renderReview(result);
     return ExitCodes.ALLOWED;
   } catch (err) {
+    spinner?.stop();
     return handleMcpError(err, 'fetch PR review', { json: options.json });
   }
 }

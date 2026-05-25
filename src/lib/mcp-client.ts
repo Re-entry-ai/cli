@@ -60,6 +60,20 @@ let nextRequestId = 1;
  *  - McpToolError if the tool itself reports `isError: true`
  *  - Generic Error for malformed or non-success JSON-RPC envelopes
  */
+/** Default wall-clock timeout for a single MCP tool call. Override via REENTRY_TIMEOUT_MS. */
+const DEFAULT_TOOL_TIMEOUT_MS = 60_000;
+
+function toolTimeoutMs(): number {
+  const env = process.env.REENTRY_TIMEOUT_MS;
+  if (env) {
+    const parsed = parseInt(env, 10);
+    if (Number.isFinite(parsed) && parsed > 0) {
+      return parsed;
+    }
+  }
+  return DEFAULT_TOOL_TIMEOUT_MS;
+}
+
 export async function callMcpTool<T = unknown>(
   toolName: string,
   args: Record<string, unknown>,
@@ -69,6 +83,7 @@ export async function callMcpTool<T = unknown>(
   const result = await apiCall<JsonRpcResponse>('/mcp/sse', {
     method: 'POST',
     token,
+    signal: AbortSignal.timeout(toolTimeoutMs()),
     headers: { 'X-Reentry-Session-Id': PROCESS_SESSION_ID },
     json: {
       jsonrpc: '2.0',

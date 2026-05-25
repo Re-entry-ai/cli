@@ -60,6 +60,11 @@ export async function apiCall<T = unknown>(
       signal: options.signal,
     });
   } catch (err) {
+    if (err instanceof Error && err.name === 'TimeoutError') {
+      throw new ApiNetworkError(
+        'Request timed out — is the backend reachable? (set REENTRY_TIMEOUT_MS to adjust)',
+      );
+    }
     const message = err instanceof Error ? err.message : 'unknown';
     throw new ApiNetworkError(`Request to ${url} failed: ${message}`);
   }
