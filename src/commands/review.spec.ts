@@ -10,8 +10,15 @@
  *    the terminal.
  */
 
+import kleur from 'kleur';
 import { reviewCommand } from './review';
 import { ExitCodes } from '../lib/exit-codes';
+
+// Disable kleur colors for all tests in this file. These tests assert on
+// content correctness, not presentation — and the sanitization test must
+// not see escape codes from kleur itself, only from LLM-injected strings.
+beforeAll(() => { kleur.enabled = false; });
+afterAll(() => { kleur.enabled = true; });
 
 jest.mock('../lib/storage', () => ({ readCredentials: jest.fn() }));
 jest.mock('../lib/git', () => ({ readRemoteOriginUrl: jest.fn() }));
