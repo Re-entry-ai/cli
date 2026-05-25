@@ -240,6 +240,12 @@ function handleMcpError(
 		return ExitCodes.NETWORK;
 	}
 	if (err instanceof McpToolError) {
+		if (err.code === 'TIER_INSUFFICIENT') {
+			const upgradeMsg =
+				'This feature requires a paid plan. Upgrade at https://www.re-entry.ai/pricing';
+			emitError({ code: 'TIER_INSUFFICIENT', message: upgradeMsg }, upgradeMsg, opts);
+			return ExitCodes.PERMISSION;
+		}
 		emitError(
 			{ code: err.code ?? "TOOL_ERROR", message: err.message },
 			`${action} failed: ${err.message}`,

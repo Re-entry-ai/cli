@@ -221,6 +221,7 @@ Codes `64`–`77` follow the BSD `sysexits.h` convention. CI authors who already
 
 | Variable               | Purpose                                                                                         |
 | ---------------------- | ----------------------------------------------------------------------------------------------- |
+| `REENTRY_TOKEN`        | Bearer token for CI / scripted use. Bypasses the credentials file — set this in CI secrets.     |
 | `REENTRY_API_URL`      | Override the backend URL (default: `https://api.re-entry.ai`).                                  |
 | `XDG_CONFIG_HOME`      | Override where credentials are stored (default: `~/.config`).                                   |
 | `NO_COLOR`             | Disable color output (standard terminal convention).                                            |

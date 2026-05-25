@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { credentialsPath } from './config';
+import { credentialsPath, apiUrl } from './config';
 
 interface Credentials {
   /** API URL the token was issued against — guard against accidental cross-env use. */
@@ -21,6 +21,17 @@ interface Credentials {
  *    user just hasn't logged in yet)
  */
 export function readCredentials(): Credentials | null {
+  // REENTRY_TOKEN env var — CI and scripted use. Takes precedence over the file
+  // so that CI pipelines don't need to run `reentry login` first.
+  const envToken = process.env.REENTRY_TOKEN;
+  if (envToken && envToken.trim().length > 0) {
+    return {
+      apiUrl: apiUrl(),
+      accessToken: envToken.trim(),
+      issuedAt: new Date().toISOString(),
+    };
+  }
+
   const file = credentialsPath();
 
   let raw: string;
