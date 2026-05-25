@@ -225,6 +225,7 @@ Codes `64`–`77` follow the BSD `sysexits.h` convention. CI authors who already
 | `XDG_CONFIG_HOME`      | Override where credentials are stored (default: `~/.config`).                                   |
 | `NO_COLOR`             | Disable color output (standard terminal convention).                                            |
 | `REENTRY_SKIP_BROWSER` | Set to `1` to suppress the browser auto-open during `login` / `init`. Useful for headless / CI. |
+| `REENTRY_TIMEOUT_MS`   | Override the default 60-second request timeout for MCP tool calls (e.g. `120000` for 2 min).   |
 
 ---
 
@@ -270,6 +271,8 @@ Pulling a repo with a re-entry hook installed never breaks a contributor who has
 1. **The token is now in two places** — `~/.config/reentry/credentials.json` and the IDE config. Running `reentry logout` deletes the first; you should also `reentry agent remove` to delete the second.
 2. **The IDE config file is also `chmod 0600`'d** by us. If you commit `.mcp.json` to a public repo, the bearer token will be exposed — the IDE config files are useful to share within a team but the token-bearing form should not be committed publicly. For shared-team-config use the project-local file with `--global` omitted; for solo / personal use, prefer `--global`.
 
+**`reentry logout` warns you when tokens linger in IDE configs.** When you log out, the CLI checks whether Claude Code or Cursor configs still contain your token and prints a reminder with the exact `reentry agent remove` command to clean them up. Always run `reentry agent remove <name>` after `reentry logout` to fully remove the credential from both places.
+
 ### Compliance status
 
 - SOC 2 Type I — see the dashboard's `/security` page for current status.
@@ -307,6 +310,7 @@ If you already have a `pre-commit` hook, it's preserved at `pre-commit.reentry-b
 | `reentry status` exits `77`                                       | Repo not in your team's selected repos                                          | Open the dashboard → integrations → add this repo.                                               |
 | `reentry agent add ...` says "stale"                              | Existing entry differs from current login (e.g., different team, different URL) | Re-run with `--force`, or `reentry agent remove` first.                                          |
 | Commit hook doesn't fire                                          | Hook missing exec bit, or hook never installed                                  | `ls -la .git/hooks/pre-commit`; rerun `reentry init`.                                            |
+| `pre-commit` / `status` / `review` hangs then exits `66`         | LLM call exceeds the 60-second timeout                                          | Set `REENTRY_TIMEOUT_MS=120000` (or higher) to extend the timeout.                               |
 
 `reentry --json` adds a structured envelope to every error — `{"success":false,"code":"...","message":"..."}` — so CI scripts can branch without parsing prose.
 
