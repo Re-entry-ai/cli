@@ -1,7 +1,15 @@
 import kleur from 'kleur';
 import { ExitCodes } from '../lib/exit-codes';
+import { CLI_VERSION } from '../lib/config';
 import { readCredentials } from '../lib/storage';
 import { installPreCommitHook } from '../lib/git-hook';
+import {
+  shouldRenderWelcome,
+  readWelcomeContext,
+  renderLogo,
+  renderHeader,
+  runReviewPresetMenu,
+} from '../lib/welcome';
 import { loginCommand } from './login';
 import { preCommitCommand } from './pre-commit';
 
@@ -133,6 +141,22 @@ export async function initCommand(options: InitOptions): Promise<number> {
     return ExitCodes.ALLOWED;
   }
 
+  if (shouldRenderWelcome({ json: options.json })) {
+    return renderWelcomeAndRunMenu();
+  }
+
+  return renderLegacySignoff();
+}
+
+async function renderWelcomeAndRunMenu(): Promise<number> {
+  process.stdout.write('\n');
+  process.stdout.write(`  ${kleur.green().bold('✓ re-entry is active.')}\n`);
+  renderLogo(CLI_VERSION);
+  renderHeader(readWelcomeContext());
+  return runReviewPresetMenu();
+}
+
+function renderLegacySignoff(): number {
   process.stdout.write('\n');
   process.stdout.write(`  ${kleur.green().bold('✓ re-entry is active.')}\n`);
   process.stdout.write('\n');

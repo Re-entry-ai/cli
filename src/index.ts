@@ -38,7 +38,7 @@ function main(argv: string[]): void {
 
   program
     .name('reentry')
-    .description('AI code governance — risk checks, guard enforcement, and agent oversight, in your terminal.')
+    .description('AI code review + agent governance — risk checks, guard enforcement, and PR review, in your terminal.')
     .version(CLI_VERSION, '-v, --version', 'print the CLI version')
     .option('--no-color', 'disable colored output')
     .addHelpText('after', `

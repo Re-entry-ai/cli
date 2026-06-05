@@ -1,7 +1,7 @@
 <h1 align="center">re-entry.ai CLI</h1>
 
 <p align="center">
-  <strong>Governance for autonomous coding agents, in your terminal.</strong>
+  <strong>AI code review + agent governance, in your terminal.</strong>
 </p>
 
 <p align="center">

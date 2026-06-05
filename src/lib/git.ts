@@ -58,6 +58,61 @@ export function readRemoteOriginUrl(): string | null {
   return null;
 }
 
+/**
+ * Top-level path of the current git repo, or null if not inside one. Used
+ * by the `init` welcome screen so the user sees which repo they're acting
+ * on before picking a review preset.
+ */
+export function readRepoRoot(): string | null {
+  return runGit(['rev-parse', '--show-toplevel'])?.trim() || null;
+}
+
+/**
+ * Detect the repository's base branch.
+ *
+ * Tries, in order:
+ *   1. `git symbolic-ref refs/remotes/origin/HEAD` — the remote's default branch.
+ *   2. local `main`.
+ *   3. local `master`.
+ * Returns null if none exist (fresh repo, no remote, detached state).
+ */
+export function readBaseBranch(): string | null {
+  const fromOriginHead = runGit(['symbolic-ref', 'refs/remotes/origin/HEAD']);
+  if (fromOriginHead) {
+    const trimmed = fromOriginHead.trim();
+    const prefix = 'refs/remotes/origin/';
+    if (trimmed.startsWith(prefix)) {
+      return trimmed.slice(prefix.length);
+    }
+  }
+
+  if (runGit(['rev-parse', '--verify', 'refs/heads/main']) !== null) {
+    return 'main';
+  }
+
+  if (runGit(['rev-parse', '--verify', 'refs/heads/master']) !== null) {
+    return 'master';
+  }
+
+  return null;
+}
+
+/**
+ * Number of files changed between `base` and the current HEAD. Returns
+ * null if the diff can't be computed (base ref missing, not in a repo).
+ */
+export function countFilesChangedVsBase(base: string): number | null {
+  const output = runGit(['diff', '--name-only', `${base}...HEAD`]);
+  if (output === null) {
+    return null;
+  }
+  const trimmed = output.trim();
+  if (trimmed.length === 0) {
+    return 0;
+  }
+  return trimmed.split('\n').length;
+}
+
 function runGit(args: string[]): string | null {
   const result = spawnSync('git', args, {
     encoding: 'utf8',
